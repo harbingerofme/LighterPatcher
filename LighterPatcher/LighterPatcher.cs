@@ -1,4 +1,4 @@
-using BepInEx;
+﻿using BepInEx;
 using Mono.Cecil;
 using Mono.Collections.Generic;
 using System;
@@ -116,7 +116,6 @@ namespace LighterPatcher
                 .GetTypes()
                 .SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
             {
-                if (!method.HasBody) continue;
                 var instructions = method.Body.Instructions;
                 foreach (var instruction in instructions)
                 {
@@ -130,20 +129,16 @@ namespace LighterPatcher
 
                     if (ilHook || onHook)
                     {
-                        var alreadyExistings = hashSetMethodContainers.Where(container =>
-                            container.Method.FullName.Equals(method.FullName)).ToArray();
+                        var alreadyExisting = hashSetMethodContainers.First(container =>
+                            container.Method.FullName.Equals(method.FullName));
 
-                        if (alreadyExistings.Length == 1)
+                        if (alreadyExisting != null)
                         {
-                            var alreadyExisting = alreadyExistings[0];
-                            if (alreadyExisting != null)
-                            {
-                                //hashSetMethodContainers.Remove(alreadyExisting);
+                            //hashSetMethodContainers.Remove(alreadyExisting);
 
-                                alreadyExisting.AddInstruction(instruction);
-                                countTotalHooks++;
-                                hashSetMethodContainers.Add(alreadyExisting);
-                            }
+                            alreadyExisting.AddInstruction(instruction);
+                            countTotalHooks++;
+                            hashSetMethodContainers.Add(alreadyExisting);
                         }
                         else
                         {
