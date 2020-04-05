@@ -350,4 +350,4 @@ MigrationBackup/
 
 # Libs
 libs/*.dll
-libs/*.dll
+libs/*.xml
