@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using Mono.Cecil;
 using Mono.Collections.Generic;
 using System;
@@ -109,6 +109,7 @@ namespace LighterPatcher
 
         public static void Patch(AssemblyDefinition assemblyDefinition)
         {
+            Logger.LogDebug($"Patching {assemblyDefinition.Name.Name}");
             var hashSetMethodContainers = new HashSet<MethodContainer>();
 
             foreach (var method in assemblyDefinition.MainModule
