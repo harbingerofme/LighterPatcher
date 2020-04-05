@@ -1,8 +1,10 @@
 ﻿using BepInEx;
 using Mono.Cecil;
+using Mono.Collections.Generic;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace LighterPatcher
 {
@@ -12,19 +14,32 @@ namespace LighterPatcher
 
         private static BepInEx.Logging.ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("LighterHook");
 
+        private static AssemblyDefinition MMHOOK;
+
+        private static ulong countMethodContainingHooks, countTotalHooks;
+        private static Collection<MethodContainer> allMethods;
+
+        private static string mmh;
+
         public static string[] ResolveDirectories { get; set; } =
         {
             Paths.PluginPath
         };
 
+
+        public static void Initialize()
+        {
+            allMethods = new Collection<MethodContainer>();
+        }
+
         private static IEnumerable<string> CollectTargetDLLs()
         {
+            
             Logger.LogInfo("Collecting all plugins");
 
             List<string> results = new List<string>();
 
-            var imm = new IncrementalMd5Maker();
-            AssemblyDefinition mmh = null;
+            mmh = null;
 
             foreach (var pluginDll in Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories))
             {
@@ -36,14 +51,14 @@ namespace LighterPatcher
                         if (ass.Name.Name == "MMHOOK_Assembly-CSharp")
                         {
                             Logger.LogInfo("MMHOOK found!");
-                            mmh = ass;
+                            mmh = pluginDll;
                             continue;
                         }
                         foreach (var refer in ass.MainModule.AssemblyReferences)
                         {
                             if (refer.Name == "MMHOOK_Assembly-CSharp")
                             {
-                                imm.Step(pluginDll + ass.FullName);
+                                //imm.Step(pluginDll + ass.FullName);
                                 results.Add(pluginDll);
                                 break;
                             }
@@ -66,41 +81,195 @@ namespace LighterPatcher
                 return new string[0];
             }
 
-            ulong hash = imm.Finalize();
-            imm.Clear();
-            Logger.LogMessage($"Found {results.Count} mods with a MMHook dependency. Hash: {hash}");
+            //ulong hash = imm.Finalize();
+            //imm.Clear();
 
-            if (mmh.MainModule.FileName == $"LighterHook-{hash}.dll")
+            Logger.LogMessage($"Found {results.Count} mods with a MMHook dependency.");// Hash: {hash}");
+            /*var hashLocation = new FileInfo(Path.Combine(Path.GetDirectoryName(mmh), $"LighterHook-{hash}"));
+            if (hashLocation.Exists)
             {
-                Logger.LogMessage("Lighterhook up to date! If you believe you see this in error, delete the Lighterhook.dll in your plugins and restart.");
+                Logger.LogMessage("Lighterhook up to date! If you believe you see this in error, delete the LighterHook-{hash} in your plugins and restart.");
                 return new string[0];
             }
+            */
 
-            string[] mmhooks = Directory.GetFiles(Paths.PluginPath, "MMHOOK_Assembly-CSharp.dl*", SearchOption.AllDirectories);
+            string[] disabledMMH = Directory.GetFiles(Paths.PluginPath, "MMHOOK_Assembly-CSharp.dll.disabled", SearchOption.AllDirectories);
 
-            if (mmhooks.Length < 1)
+            if (disabledMMH.Length > 0)
             {
-                Logger.LogFatal("No MMHook file found to patch");
-                return new string[0];
+                File.Delete(mmh);
+                File.Move(disabledMMH[0], mmh);
             }
 
-            if (mmh.MainModule.FileName.StartsWith("LighterHook"))
-            {
-                Logger.LogMessage("Found an Old LighterHook, rebuilding.");
-                mmh.Dispose();
-                mmh = AssemblyDefinition.ReadAssembly(mmhooks[0]);
-            }
+            Logger.LogDebug($"Backing up MMHOOK.");
+            File.Copy(mmh, mmh + ".disabled");
 
-            string buildLocation = Path.Combine(Paths.PluginPath, $"LighterHook-{hash}.dll");
-            Logger.LogDebug($"Writing MMHOOK to {buildLocation}");
-            mmh.Write(buildLocation);
-            Logger.LogDebug("Finsihed writing building file");
             return results;
         }
 
         public static void Patch(AssemblyDefinition assemblyDefinition)
         {
+            var hashSetMethodContainers = new HashSet<MethodContainer>();
 
+            foreach (var method in assemblyDefinition.MainModule
+                .GetTypes()
+                .SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
+            {
+                if (!method.HasBody) continue;
+                var instructions = method.Body.Instructions;
+                foreach (var instruction in instructions)
+                {
+                    //Console.WriteLine($"\t{instruction.OpCode} \"{instruction.Operand}\"");
+                    if (instruction.Operand == null) continue;
+
+                    var ilHook = instruction.OpCode.ToString().ToLower().Contains("call") &&
+                                  instruction.Operand.ToString().ToLower().Contains("ilcontext/manipulator");
+
+                    var onHook = instruction.OpCode.ToString().ToLower().Contains("call") && instruction.Operand.ToString().Contains("On.");
+
+                    if (ilHook || onHook)
+                    {
+                        var alreadyExistings = hashSetMethodContainers.Where(container =>
+                            container.Method.FullName.Equals(method.FullName)).ToArray();
+
+                        if (alreadyExistings.Length == 1)
+                        {
+                            var alreadyExisting = alreadyExistings[0];
+                            if (alreadyExisting != null)
+                            {
+                                //hashSetMethodContainers.Remove(alreadyExisting);
+
+                                alreadyExisting.AddInstruction(instruction);
+                                countTotalHooks++;
+                                hashSetMethodContainers.Add(alreadyExisting);
+                            }
+                        }
+                        else
+                        {
+                            hashSetMethodContainers.Add(new MethodContainer(method, instruction));
+                            countMethodContainingHooks++;
+                        }
+                    }
+                }
+                if (allMethods.Count == 0)
+                    allMethods = new Collection<MethodContainer>(hashSetMethodContainers.ToList());
+                else
+                {
+                    allMethods = new Collection<MethodContainer>(allMethods.Concat(hashSetMethodContainers).ToList());
+                }
+            }
+        }
+
+        public static void Finish()
+        {
+            Logger.LogInfo($"Number of methods containing hooks : {countMethodContainingHooks}");
+            Logger.LogInfo($"Number of hooks : {countTotalHooks}" );
+            Logger.LogInfo($"Making new MMHook...");
+
+            var mmhookRemainingTypes = new HashSet<TypeDefinition>();
+            var onHookCounterPartCount = 0;
+            var mmHookAssembly = AssemblyDefinition.ReadAssembly(mmh+".disabled");
+
+            foreach (var methodFromMm in mmHookAssembly.MainModule
+                .GetTypes()
+                .SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
+            {
+                foreach (var methodContainer in allMethods)
+                {
+                    foreach (var instruction in methodContainer.Instructions)
+                    {
+                        if (instruction.Operand.ToString().Contains(methodFromMm.FullName.GetUntilOrEmpty("(")))
+                        {
+                            bool isIlHook = instruction.Operand.ToString().Contains("IL.");
+
+                            if (isIlHook)
+                            {
+                                var ilTypeIntoOnType = instruction.Operand.ToString().Replace("IL.", "On.").Replace("System.Void ", "").GetUntilOrEmpty(":");
+                                if (!mmhookRemainingTypes.Any(definition => definition.FullName.Contains(ilTypeIntoOnType)))
+                                {
+                                    foreach (var typeDefinition in mmHookAssembly.MainModule.GetTypes())
+                                    {
+                                        if (typeDefinition.FullName.Equals(ilTypeIntoOnType))
+                                        {
+                                            mmhookRemainingTypes.Add(typeDefinition);
+                                            //Console.WriteLine("type added : " + typeDefinition.FullName + " | iltypeIntoOn : " + ilTypeIntoOnType);
+                                            onHookCounterPartCount++;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // handle nested types
+                            var parentType = methodFromMm.DeclaringType.FullName.GetUntilOrEmpty("/");
+                            if (parentType.Length > 1 && !mmhookRemainingTypes.Any(definition => definition.FullName.Contains(parentType)))
+                            {
+                                foreach (var typeDefinition in mmHookAssembly.MainModule.GetTypes())
+                                {
+                                    if (typeDefinition.FullName.Contains(parentType))
+                                    {
+                                        mmhookRemainingTypes.Add(typeDefinition);
+
+                                        var ilTypeIntoOnType2 = parentType.Replace("IL.", "On.");
+                                        var onTypeDef = mmHookAssembly.MainModule.GetTypes()
+                                            .Where(definition => definition.FullName.Equals(ilTypeIntoOnType2)).ToArray();
+                                        if (onTypeDef.Length == 1)
+                                        {
+                                            mmhookRemainingTypes.Add(onTypeDef[0]);
+                                            //Console.WriteLine(onTypeDef[0].FullName);
+                                            onHookCounterPartCount++;
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!mmhookRemainingTypes.Any(definition => definition.FullName.Equals(methodFromMm.DeclaringType.FullName)))
+                            {
+                                mmhookRemainingTypes.Add(methodFromMm.DeclaringType);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Logger.LogInfo($"Number of On Hooks added because of their IL counterpart : {onHookCounterPartCount}");
+
+            var typeToRemove = new List<TypeDefinition>();
+            foreach (var type in mmHookAssembly.MainModule.Types)
+            {
+                if (!typeToRemove.Any(definition => definition.FullName.Equals(type.FullName)))
+                {
+                    if (!mmhookRemainingTypes.Any(definition => definition.FullName.Equals(type.FullName)))
+                    {
+                        typeToRemove.Add(type);
+                    }
+                }
+            }
+
+            for (int i = 0; i < typeToRemove.Count; i++)
+            {
+                mmHookAssembly.MainModule.Types.Remove(typeToRemove[i]);
+            }
+
+            Logger.LogMessage("Writing LighterHook");
+            mmHookAssembly.Write(mmh);
+        }
+
+        public static string GetUntilOrEmpty(this string text, string stopAt = "-")
+        {
+            if (!String.IsNullOrWhiteSpace(text))
+            {
+                int charLocation = text.IndexOf(stopAt, StringComparison.Ordinal);
+
+                if (charLocation > 0)
+                {
+                    return text.Substring(0, charLocation);
+                }
+            }
+
+            return String.Empty;
         }
     }
 }
