@@ -59,7 +59,7 @@ namespace LighterPatcher
                             if (refer.Name == "MMHOOK_Assembly-CSharp")
                             {
                                 //imm.Step(pluginDll + ass.FullName);
-                                results.Add(pluginDll);
+                                results.Add(Path.GetFileName(pluginDll));
                                 break;
                             }
                         }
@@ -104,6 +104,7 @@ namespace LighterPatcher
             Logger.LogDebug($"Backing up MMHOOK.");
             File.Copy(mmh, mmh + ".disabled");
 
+            Logger.LogDebug("Passing back to BepInEx: " + string.Join(" and ", results));
             return results;
         }
 
