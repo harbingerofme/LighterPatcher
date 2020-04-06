@@ -29,7 +29,13 @@ namespace LighterPatcher
             }
         }
 
+        /*
         public override int GetHashCode()
+        {
+            return Method.FullName.GetHashCode() + Instructions.Count;
+        }
+        */
+        public int MakeHashCode()
         {
             return Method.FullName.GetHashCode() + Instructions.Count;
         }
