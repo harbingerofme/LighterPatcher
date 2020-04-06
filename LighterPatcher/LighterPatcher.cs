@@ -16,11 +16,12 @@ namespace LighterPatcher
         private static BepInEx.Logging.ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("LighterHook");
 
         private static ulong countMethodContainingHooks, countTotalHooks;
-        private static Collection<MethodContainer> allMethods;
+        private static List<MethodContainer> allMethods;
 
         private static List<AssemblyDefinition> toCollectFrom = null;
 
         private static string mmh;
+        private static string oldHash;
 
         public static string[] ResolveDirectories { get; set; } =
         {
@@ -30,7 +31,7 @@ namespace LighterPatcher
 
         public static void Initialize()
         {
-            allMethods = new Collection<MethodContainer>();
+            allMethods = new List< MethodContainer>();
             toCollectFrom = new List<AssemblyDefinition>();
         }
 
@@ -52,7 +53,17 @@ namespace LighterPatcher
                     {
                         if (ass.Name.Name == "MMHOOK_Assembly-CSharp")
                         {
-                            Logger.LogInfo("MMHOOK found!");
+                            
+                            var hashType = ass.MainModule.Types.FirstOrDefault((td) => td.Namespace == "LighterHook");
+                            if (hashType != null)
+                            {
+                                oldHash = hashType.Name.Substring(4);
+                                Logger.LogInfo($"Lighter MMHOOK found, hash: {oldHash}");
+                            }
+                            else
+                            {
+                                Logger.LogInfo("Vanilla MMHOOK found!");
+                            }
                             mmh = pluginDll;
                             continue;
                         }
@@ -99,7 +110,7 @@ namespace LighterPatcher
 
             if (disabledMMH.Length > 0)
             {
-                File.Delete(mmh);
+                File.Move(mmh, mmh + ".old");
                 File.Move(disabledMMH[0], mmh);
             }
 
@@ -157,23 +168,18 @@ namespace LighterPatcher
 
             foreach (var methodContainer in hashSetMethodContainers)
             {
-                //Console.WriteLine($"Method : {methodContainer.Method.FullName}");
-                //Console.WriteLine($"Type : {methodContainer.Method.DeclaringType.FullName} | Method : {methodContainer.Method.FullName}");
                 foreach (var instruction in methodContainer.Instructions)
                 {
-                    Console.WriteLine($"\t{instruction.OpCode} \"{instruction.Operand}\"");
                     countTotalHooks++;
                 }
-
                 countMethodContainingHooks++;
-                //Console.WriteLine("\n");
             }
 
             if (allMethods.Count == 0)
-                allMethods = new Collection<MethodContainer>(hashSetMethodContainers.ToList());
+                allMethods = hashSetMethodContainers.ToList();
             else
             {
-                allMethods = new Collection<MethodContainer>(allMethods.Concat(hashSetMethodContainers).ToList());
+                allMethods = allMethods.Concat(hashSetMethodContainers).ToList();
             }
         }
 
@@ -185,23 +191,46 @@ namespace LighterPatcher
                 Patch(assembly);
 
             Logger.LogInfo($"Number of methods containing hooks : {countMethodContainingHooks}");
-            Logger.LogInfo($"Number of hooks : {countTotalHooks}" );
+            Logger.LogInfo($"Number of hooks : {countTotalHooks}");
+
+            allMethods = allMethods.OrderBy((x) => x.Method.FullName).ToList();
+            long hashCode = 0;
+            foreach (var method in allMethods)
+            {
+                hashCode += method.GetHashCode();
+            }
+
+
+            if (oldHash == hashCode.ToString())
+            {
+                Logger.LogInfo($"LighterhHook has already run for these mods. Using that old file again.");
+                File.Move(mmh + ".old", mmh);
+            }
+            else
+            {
+                File.Delete(mmh + ".old");
+                MakeNewMMHook(hashCode);
+            }
+
+            Dispose();
+        }
+
+
+
+        private static void MakeNewMMHook(long hashCode)
+        {
             Logger.LogInfo($"Making new MMHook...");
 
             var mmhookRemainingTypes = new HashSet<TypeDefinition>();
             var onHookCounterPartCount = 0;
-            var mmHookAssembly = AssemblyDefinition.ReadAssembly(mmh+".disabled");
-
+            var mmHookAssembly = AssemblyDefinition.ReadAssembly(mmh + ".disabled");
             Logger.LogDebug($"Scanned in disabled mmHook");
             int max = mmHookAssembly.MainModule.Types.Count;
             int counter = 0;
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-            var innerWatch = new Stopwatch();
             foreach (var mmType in mmHookAssembly.MainModule.Types)
             {
-                if (counter % 10 == 0)
-                    Logger.LogDebug($"[{stopwatch.Elapsed.TotalMilliseconds}]Types parsed: {counter} / {max}");
                 counter++;
                 foreach (var methodFromMm in mmType.Methods)
                 {
@@ -269,7 +298,7 @@ namespace LighterPatcher
                 }
             }
             stopwatch.Stop();
-            Logger.LogInfo($"Time elapsed: {stopwatch.ElapsedMilliseconds} milliseconds");
+            Logger.LogDebug($"Time elapsed: {stopwatch.ElapsedMilliseconds} milliseconds");
             Logger.LogInfo($"Number of On Hooks added because of their IL counterpart : {onHookCounterPartCount}");
 
             var typeToRemove = new List<TypeDefinition>();
@@ -289,8 +318,11 @@ namespace LighterPatcher
                 mmHookAssembly.MainModule.Types.Remove(typeToRemove[i]);
             }
 
+            Logger.LogDebug($"Adding Hash {hashCode}");
+            MarkAssembly(mmHookAssembly, hashCode);
             Logger.LogMessage("Writing LighterHook");
             mmHookAssembly.Write(mmh);
+            mmHookAssembly.Dispose();
         }
 
         public static string GetUntilOrEmpty(this string text, string stopAt = "-")
@@ -306,6 +338,26 @@ namespace LighterPatcher
             }
 
             return String.Empty;
+        }
+
+        private static void MarkAssembly(AssemblyDefinition assembly, long hash)
+        {
+            var markerType = new TypeDefinition(
+               "LighterHook",
+               "Hash"+hash.ToString(),
+               TypeAttributes.Class | TypeAttributes.Public,
+               assembly.MainModule.ImportReference(typeof(object)));
+
+            assembly.MainModule.Types.Add(markerType);
+        }
+
+        private static void Dispose()
+        {
+            allMethods = null;
+            foreach (var a in toCollectFrom)
+            {
+                a.Dispose();
+            }
         }
     }
 }
