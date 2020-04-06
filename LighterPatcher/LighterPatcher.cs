@@ -144,27 +144,43 @@ namespace LighterPatcher
                             //hashSetMethodContainers.Remove(alreadyExisting);
 
                             alreadyExisting.AddInstruction(instruction);
-                            countTotalHooks++;
                             hashSetMethodContainers.Add(alreadyExisting);
                         }
                         else
                         {
                             hashSetMethodContainers.Add(new MethodContainer(method, instruction));
-                            countMethodContainingHooks++;
                         }
                     }
                 }
-                if (allMethods.Count == 0)
-                    allMethods = new Collection<MethodContainer>(hashSetMethodContainers.ToList());
-                else
+
+            }
+
+            foreach (var methodContainer in hashSetMethodContainers)
+            {
+                //Console.WriteLine($"Method : {methodContainer.Method.FullName}");
+                //Console.WriteLine($"Type : {methodContainer.Method.DeclaringType.FullName} | Method : {methodContainer.Method.FullName}");
+                foreach (var instruction in methodContainer.Instructions)
                 {
-                    allMethods = new Collection<MethodContainer>(allMethods.Concat(hashSetMethodContainers).ToList());
+                    Console.WriteLine($"\t{instruction.OpCode} \"{instruction.Operand}\"");
+                    countTotalHooks++;
                 }
+
+                countMethodContainingHooks++;
+                //Console.WriteLine("\n");
+            }
+
+            if (allMethods.Count == 0)
+                allMethods = new Collection<MethodContainer>(hashSetMethodContainers.ToList());
+            else
+            {
+                allMethods = new Collection<MethodContainer>(allMethods.Concat(hashSetMethodContainers).ToList());
             }
         }
 
         public static void Finish()
         {
+
+
             foreach (AssemblyDefinition assembly in toCollectFrom)
                 Patch(assembly);
 
@@ -181,7 +197,7 @@ namespace LighterPatcher
             int counter = 0;
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-
+            var innerWatch = new Stopwatch();
             foreach (var mmType in mmHookAssembly.MainModule.Types)
             {
                 if (counter % 10 == 0)
