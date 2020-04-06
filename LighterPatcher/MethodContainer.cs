@@ -1,5 +1,6 @@
 ﻿using Mono.Cecil;
 using Mono.Cecil.Cil;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -26,6 +27,11 @@ namespace LighterPatcher
             {
                 Instructions.Add(instruction);
             }
+        }
+
+        public override int GetHashCode()
+        {
+            return Method.FullName.GetHashCode() + Instructions.Count;
         }
     }
 }
