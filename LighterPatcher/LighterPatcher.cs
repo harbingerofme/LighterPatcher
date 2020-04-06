@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using Mono.Cecil;
 using Mono.Collections.Generic;
 using System;
@@ -130,7 +130,7 @@ namespace LighterPatcher
 
                     if (ilHook || onHook)
                     {
-                        var alreadyExisting = hashSetMethodContainers.First(container =>
+                        var alreadyExisting = hashSetMethodContainers.FirstOrDefault(container =>
                             container.Method.FullName.Equals(method.FullName));
 
                         if (alreadyExisting != null)
