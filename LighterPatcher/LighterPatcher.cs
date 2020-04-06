@@ -14,8 +14,6 @@ namespace LighterPatcher
 
         private static BepInEx.Logging.ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("LighterHook");
 
-        private static AssemblyDefinition MMHOOK;
-
         private static ulong countMethodContainingHooks, countTotalHooks;
         private static Collection<MethodContainer> allMethods;
 
