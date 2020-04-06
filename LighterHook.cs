@@ -74,67 +74,7 @@ namespace LighterHook
 
             foreach (var assembly in allPlugins)
             {
-                var hashSetMethodContainers = new HashSet<MethodContainer>();
-
-                foreach (var method in assembly.MainModule
-                    .GetTypes()
-                    .SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
-                {
-                    if (!method.HasBody) continue;
-                    var instructions = method.Body.Instructions;
-                    foreach (var instruction in instructions)
-                    {
-                        //Console.WriteLine($"\t{instruction.OpCode} \"{instruction.Operand}\"");
-                        if (instruction.Operand == null) continue;
-
-                        var ilHook = instruction.OpCode.ToString().ToLower().Contains("call") &&
-                                      instruction.Operand.ToString().ToLower().Contains("ilcontext/manipulator");
-
-                        var onHook = instruction.OpCode.ToString().ToLower().Contains("call") && instruction.Operand.ToString().Contains("On.");
-
-                        if (ilHook || onHook)
-                        {
-                            var alreadyExistings = hashSetMethodContainers.Where(container =>
-                                container.Method.FullName.Equals(method.FullName)).ToArray();
-
-                            if (alreadyExistings.Length == 1)
-                            {
-                                var alreadyExisting = alreadyExistings[0];
-                                if (alreadyExisting != null)
-                                {
-                                    //hashSetMethodContainers.Remove(alreadyExisting);
-
-                                    alreadyExisting.AddInstruction(instruction);
-                                    hashSetMethodContainers.Add(alreadyExisting);
-                                }
-                            }
-                            else
-                            {
-                                hashSetMethodContainers.Add(new MethodContainer(method, instruction));
-                            }
-                        }
-                    }
-                }
-
-                foreach (var methodContainer in hashSetMethodContainers)
-                {
-                    Console.WriteLine($"Method : {methodContainer.Method.FullName}");
-                    //Console.WriteLine($"Type : {methodContainer.Method.DeclaringType.FullName} | Method : {methodContainer.Method.FullName}");
-                    foreach (var instruction in methodContainer.Instructions)
-                    {
-                        Console.WriteLine($"\t{instruction.OpCode} \"{instruction.Operand}\"");
-                        countTotalHooks++;
-                    }
-
-                    countMethodContainingHooks++;
-                    Console.WriteLine("\n");
-                }
-                if (allMethods.Count == 0)
-                    allMethods = new Collection<MethodContainer>(hashSetMethodContainers.ToList());
-                else
-                {
-                    allMethods = new Collection<MethodContainer>(allMethods.Concat(hashSetMethodContainers).ToList());
-                }
+                Patch(ref allMethods, ref countMethodContainingHooks, ref countTotalHooks, assembly);
             }
             Console.WriteLine("[LighterHook] Number of methods containing hooks : " + countMethodContainingHooks);
             Console.WriteLine("[LighterHook] Number of hooks : " + countTotalHooks);
@@ -243,6 +183,71 @@ namespace LighterHook
             //{
             Console.ReadLine();
             //}
+        }
+
+        private static void Patch(ref Collection<MethodContainer> allMethods, ref int countMethodContainingHooks, ref int countTotalHooks, AssemblyDefinition assembly)
+        {
+            var hashSetMethodContainers = new HashSet<MethodContainer>();
+
+            foreach (var method in assembly.MainModule
+                .GetTypes()
+                .SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
+            {
+                if (!method.HasBody) continue;
+                var instructions = method.Body.Instructions;
+                foreach (var instruction in instructions)
+                {
+                    //Console.WriteLine($"\t{instruction.OpCode} \"{instruction.Operand}\"");
+                    if (instruction.Operand == null) continue;
+
+                    var ilHook = instruction.OpCode.ToString().ToLower().Contains("call") &&
+                                  instruction.Operand.ToString().ToLower().Contains("ilcontext/manipulator");
+
+                    var onHook = instruction.OpCode.ToString().ToLower().Contains("call") && instruction.Operand.ToString().Contains("On.");
+
+                    if (ilHook || onHook)
+                    {
+                        var alreadyExistings = hashSetMethodContainers.Where(container =>
+                            container.Method.FullName.Equals(method.FullName)).ToArray();
+
+                        if (alreadyExistings.Length == 1)
+                        {
+                            var alreadyExisting = alreadyExistings[0];
+                            if (alreadyExisting != null)
+                            {
+                                //hashSetMethodContainers.Remove(alreadyExisting);
+
+                                alreadyExisting.AddInstruction(instruction);
+                                hashSetMethodContainers.Add(alreadyExisting);
+                            }
+                        }
+                        else
+                        {
+                            hashSetMethodContainers.Add(new MethodContainer(method, instruction));
+                        }
+                    }
+                }
+            }
+
+            foreach (var methodContainer in hashSetMethodContainers)
+            {
+                Console.WriteLine($"Method : {methodContainer.Method.FullName}");
+                //Console.WriteLine($"Type : {methodContainer.Method.DeclaringType.FullName} | Method : {methodContainer.Method.FullName}");
+                foreach (var instruction in methodContainer.Instructions)
+                {
+                    Console.WriteLine($"\t{instruction.OpCode} \"{instruction.Operand}\"");
+                    countTotalHooks++;
+                }
+
+                countMethodContainingHooks++;
+                Console.WriteLine("\n");
+            }
+            if (allMethods.Count == 0)
+                allMethods = new Collection<MethodContainer>(hashSetMethodContainers.ToList());
+            else
+            {
+                allMethods = new Collection<MethodContainer>(allMethods.Concat(hashSetMethodContainers).ToList());
+            }
         }
     }
 }
