@@ -183,8 +183,6 @@ namespace LighterPatcher
 
         public static void Finish()
         {
-
-
             foreach (AssemblyDefinition assembly in toCollectFrom)
                 Patch(assembly);
 
@@ -197,7 +195,6 @@ namespace LighterPatcher
             {
                 hashCode += method.MakeHashCode();
             }
-
 
             if (oldHash == hashCode.ToString())
             {
@@ -230,13 +227,13 @@ namespace LighterPatcher
             List<string> deleteThese = new List<string>();
             bool deleteThis = false;
 
-            foreach (var methodFromMm in mmHookAssembly.MainModule
-                .GetTypes()
-                .SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
+            var allTypesFromMM = mmHookAssembly.MainModule.GetTypes();
+
+            foreach (var methodFromMm in allTypesFromMM.SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
             {
                 if (methodFromMm.HasBody == false)
                     continue;
-                //Logger.LogDebug($"Parsing method: {methodFromMm.Name}");
+
                 var methodNode = allMethods.First;
                 while (methodNode != null)
                 {
@@ -245,15 +242,14 @@ namespace LighterPatcher
                     {
                         if (instruction.Contains(methodFromMm.FullName.GetUntilOrEmpty("(")))
                         {
-                            bool isIlHook = instruction.Contains("IL.");
+                            deleteThese.Add(instruction);
 
-                            if (isIlHook)
+                            if (instruction.Contains("IL."))
                             {
-                                deleteThese.Add(instruction);
                                 var ilTypeIntoOnType = instruction.Replace("IL.", "On.").Replace("System.Void ", "").GetUntilOrEmpty(":");
-                                if (!mmhookRemainingTypes.Any(definition => definition.FullName.Contains(ilTypeIntoOnType)))
+                                if (mmhookRemainingTypes.DoesNotHaveType(ilTypeIntoOnType))
                                 {
-                                    foreach (var typeDefinition in mmHookAssembly.MainModule.GetTypes())
+                                    foreach (var typeDefinition in allTypesFromMM)
                                     {
                                         if (typeDefinition.FullName.Equals(ilTypeIntoOnType))
                                         {
@@ -268,16 +264,16 @@ namespace LighterPatcher
 
                             // handle nested types
                             var parentType = methodFromMm.DeclaringType.FullName.GetUntilOrEmpty("/");
-                            if (parentType.Length > 1 && !mmhookRemainingTypes.Any(definition => definition.FullName.Contains(parentType)))
+                            if (parentType.Length > 1 && mmhookRemainingTypes.DoesNotHaveType(parentType))
                             {
-                                foreach (var typeDefinition in mmHookAssembly.MainModule.GetTypes())
+                                foreach (var typeDefinition in allTypesFromMM)
                                 {
                                     if (typeDefinition.FullName.Contains(parentType))
                                     {
                                         mmhookRemainingTypes.Add(typeDefinition);
 
                                         var ilTypeIntoOnType2 = parentType.Replace("IL.", "On.");
-                                        var onTypeDef = mmHookAssembly.MainModule.GetTypes()
+                                        var onTypeDef = allTypesFromMM
                                             .Where(definition => definition.FullName.Equals(ilTypeIntoOnType2)).ToArray();
                                         if (onTypeDef.Length == 1)
                                         {
@@ -290,7 +286,7 @@ namespace LighterPatcher
                                 }
                             }
 
-                            if (!mmhookRemainingTypes.Any(definition => definition.FullName.Equals(methodFromMm.DeclaringType.FullName)))
+                            if (mmhookRemainingTypes.DoesNotHaveType(methodFromMm.DeclaringType.FullName))
                             {
                                 mmhookRemainingTypes.Add(methodFromMm.DeclaringType);
                                 break;
@@ -353,6 +349,11 @@ namespace LighterPatcher
             }
 
             return String.Empty;
+        }
+
+        private static bool DoesNotHaveType(this IEnumerable<TypeDefinition> typeDefinitions, string toTest)
+        {
+            return !typeDefinitions.Any(definition => definition.FullName.Equals(toTest));
         }
 
         private static void MarkAssembly(AssemblyDefinition assembly, long hash)
