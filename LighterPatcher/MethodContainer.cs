@@ -9,23 +9,22 @@ namespace LighterPatcher
     class MethodContainer
     {
         public MethodDefinition Method;
-        public HashSet<Instruction> Instructions = new HashSet<Instruction>();
+        public HashSet<string> Operands = new HashSet<string>();
 
         public MethodContainer(MethodDefinition method, Instruction instruction)
         {
             Method = method;
+            string instructionOperand = instruction.Operand.ToString();
+            Operands.Add(instructionOperand);
 
-            if (!Instructions.Any(instruction1 => instruction1.Operand.Equals(instruction.Operand)))
-            {
-                Instructions.Add(instruction);
-            }
         }
 
         public void AddInstruction(Instruction instruction)
         {
-            if (!Instructions.Any(instruction1 => instruction1.Operand.Equals(instruction.Operand)))
+            string instructionOperand = instruction.Operand.ToString();
+            if (!Operands.Contains(instructionOperand))
             {
-                Instructions.Add(instruction);
+                Operands.Add(instructionOperand);
             }
         }
 
@@ -37,7 +36,7 @@ namespace LighterPatcher
         */
         public int MakeHashCode()
         {
-            return Method.FullName.GetHashCode() + Instructions.Count;
+            return Method.FullName.GetHashCode() + Operands.Count;
         }
     }
 }

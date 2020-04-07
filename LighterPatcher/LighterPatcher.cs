@@ -1,5 +1,6 @@
 ﻿using BepInEx;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Mono.Collections.Generic;
 using System;
 using System.Collections.Generic;
@@ -16,7 +17,7 @@ namespace LighterPatcher
         private static BepInEx.Logging.ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("LighterHook");
 
         private static ulong countMethodContainingHooks, countTotalHooks;
-        private static Collection<MethodContainer> allMethods;
+        private static LinkedList<MethodContainer> allMethods;
 
         private static List<AssemblyDefinition> toCollectFrom = null;
 
@@ -31,7 +32,7 @@ namespace LighterPatcher
 
         public static void Initialize()
         {
-            allMethods = new Collection<MethodContainer>();
+            allMethods = new LinkedList<MethodContainer>();
             toCollectFrom = new List<AssemblyDefinition>();
         }
 
@@ -165,7 +166,7 @@ namespace LighterPatcher
 
             foreach (var methodContainer in hashSetMethodContainers)
             {
-                foreach (var instruction in methodContainer.Instructions)
+                foreach (var instruction in methodContainer.Operands)
                 {
                     countTotalHooks++;
                 }
@@ -173,10 +174,10 @@ namespace LighterPatcher
             }
 
             if (allMethods.Count == 0)
-                allMethods = new Collection<MethodContainer>(hashSetMethodContainers.ToList());
+                allMethods = new LinkedList<MethodContainer>(hashSetMethodContainers.ToList());
             else
             {
-                allMethods = new Collection<MethodContainer>(allMethods.Concat(hashSetMethodContainers).ToList());
+                allMethods = new LinkedList<MethodContainer>(allMethods.Concat(hashSetMethodContainers).ToList());
             }
         }
 
@@ -225,6 +226,10 @@ namespace LighterPatcher
             int max = mmHookAssembly.MainModule.Types.Count;
             var stopwatch = new Stopwatch();
             stopwatch.Start();
+
+            List<string> deleteThese = new List<string>();
+            bool deleteThis = false;
+
             foreach (var methodFromMm in mmHookAssembly.MainModule
                 .GetTypes()
                 .SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
@@ -232,17 +237,20 @@ namespace LighterPatcher
                 if (methodFromMm.HasBody == false)
                     continue;
                 //Logger.LogDebug($"Parsing method: {methodFromMm.Name}");
-                foreach (var methodContainer in allMethods)
+                var methodNode = allMethods.First;
+                while (methodNode != null)
                 {
-                    foreach (var instruction in methodContainer.Instructions)
+                    var methodContainer = methodNode.Value;
+                    foreach (var instruction in methodContainer.Operands)
                     {
-                        if (instruction.Operand.ToString().Contains(methodFromMm.FullName.GetUntilOrEmpty("(")))
+                        if (instruction.Contains(methodFromMm.FullName.GetUntilOrEmpty("(")))
                         {
-                            bool isIlHook = instruction.Operand.ToString().Contains("IL.");
+                            bool isIlHook = instruction.Contains("IL.");
 
                             if (isIlHook)
                             {
-                                var ilTypeIntoOnType = instruction.Operand.ToString().Replace("IL.", "On.").Replace("System.Void ", "").GetUntilOrEmpty(":");
+                                deleteThese.Add(instruction);
+                                var ilTypeIntoOnType = instruction.Replace("IL.", "On.").Replace("System.Void ", "").GetUntilOrEmpty(":");
                                 if (!mmhookRemainingTypes.Any(definition => definition.FullName.Contains(ilTypeIntoOnType)))
                                 {
                                     foreach (var typeDefinition in mmHookAssembly.MainModule.GetTypes())
@@ -287,10 +295,22 @@ namespace LighterPatcher
                                 mmhookRemainingTypes.Add(methodFromMm.DeclaringType);
                                 break;
                             }
+
                         }
                     }
-                }
 
+
+                    foreach(string operand in deleteThese)
+                    {
+                        methodContainer.Operands.Remove(operand);
+                    }
+                    methodNode = methodNode.Next;
+                    if (methodContainer.Operands.Count == 0)
+                    {
+                        allMethods.Remove(methodNode.Previous);
+                    }
+                    deleteThese.Clear();
+                }
             }
             stopwatch.Stop();
             Logger.LogDebug($"Time elapsed: {stopwatch.ElapsedMilliseconds} milliseconds");
