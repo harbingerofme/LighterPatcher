@@ -106,17 +106,22 @@ namespace LighterPatcher
         {
             if (mmhLocation == null)
                 return;//Nothing to patch.
+
+
             using (AssemblyDefinition mmHook = AssemblyDefinition.ReadAssembly(mmhLocation + ".backup"))
             {
                 Logger.LogInfo("Stripping types. This may take a while.");
                 var mTypes = mmHook.MainModule.Types;
                 List<TypeDefinition> types = mTypes.ToList();
-                types.OrderBy(x => x.FullName);
+                types = types.OrderBy(x => x.FullName).ToList();
 
                 int index = 0; TypeDefinition currentType;
-                while(types.Count != neededTypes.Count && index < types.Count)
+                while(neededTypes.Count > 0 && index < types.Count)
                 {
                     currentType = types[index];
+                    if (currentType.HasNestedTypes)//expand nested types.
+                        types.InsertRange(index+1, currentType.NestedTypes.ToList().OrderBy(x => x.FullName));
+
                     if (currentType.FullName != neededTypes[0])
                     {
                         types.RemoveAt(index);
@@ -129,6 +134,12 @@ namespace LighterPatcher
                         neededTypes.RemoveAt(0);
                     }
                 }
+
+                if (neededTypes.Count > 0)
+                {
+                    Logger.LogError("Couldn't find all needed types!");
+                }
+
                 MarkAssembly(mmHook, hash);
                 mmHook.Write(mmhLocation);
             }
