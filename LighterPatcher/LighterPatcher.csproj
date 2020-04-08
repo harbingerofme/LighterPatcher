@@ -5,6 +5,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="LighterPatcher.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="LighterPatcher.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Mono.Cecil" Version="0.10.4" />
   </ItemGroup>
 
