@@ -165,7 +165,6 @@ namespace LighterPatcher
         private static void CollectMethodDefinitions(AssemblyDefinition assembly)
         {
             Logger.LogInfo($"Collecting methods from: {assembly.Name.Name}");
-            var hashSetMethodContainers = new HashSet<MethodContainer>();
 
             foreach (var method in assembly.MainModule
                 .GetTypes()
