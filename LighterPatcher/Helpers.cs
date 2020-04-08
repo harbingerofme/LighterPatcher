@@ -23,7 +23,7 @@ namespace LighterPatcher
                 GetTypesFromIndex(ref typeList);
             }
 
-            i = operand.IndexOf("Il.");
+            i = operand.IndexOf("IL.");
             if(i != -1)
             {
                 GetTypesFromIndex(ref typeList);
@@ -35,8 +35,8 @@ namespace LighterPatcher
                 var j = operand.IndexOf("::");
                 CompleteClass = operand.Substring(i, j - i);
                 var classes = CompleteClass.Split('/');
-                var requiredOn = classes[0].Replace("Il.", "On.");
-                var requiredIL = classes[0].Replace( "On.", "Il.");
+                var requiredOn = classes[0].Replace("IL.", "On.");
+                var requiredIL = classes[0].Replace( "On.", "IL.");
                 types.UAdd(requiredOn);
                 types.UAdd(requiredIL);
                 for (int x = 1; x < classes.Length; x++)
