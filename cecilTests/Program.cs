@@ -1,6 +1,7 @@
 ﻿using Mono.Cecil;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace cecilTests
@@ -10,10 +11,15 @@ namespace cecilTests
         static void Main(string[] args)
         {
             var a = AssemblyDefinition.ReadAssembly(args[0]);
-            List<TypeDefinition> list = a.MainModule.Types.ToList();
-            foreach (TypeDefinition type in list.OrderBy(x => x.FullName))
+            List<TypeDefinition> types = a.MainModule.Types.OrderBy(x => x.FullName).ToList();
+            for (int index = 0; index < types.Count; index++)
             {
-                Console.WriteLine(type.FullName);
+                var currentType = types[index];
+                Console.WriteLine($"{currentType.FullName} : HasNested:{currentType.HasNestedTypes} ");
+                if (currentType.HasNestedTypes)//expand nested types.
+                {
+                    types.InsertRange(index + 1, currentType.NestedTypes.ToList().OrderBy(x => x.FullName));
+                }
             }
         }
     }
