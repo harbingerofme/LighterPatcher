@@ -351,3 +351,6 @@ MigrationBackup/
 # Libs
 libs/*.dll
 libs/*.xml
+
+# Thunderstore Stuff
+Thunderstore/*
