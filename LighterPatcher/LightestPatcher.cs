@@ -89,6 +89,7 @@ namespace LighterPatcher
                 if (oldHash == null)
                 {
                     Logger.LogDebug("Backing up vanilla MMHook");
+                    File.Delete(mmhLocation + ".backup");
                     File.Move(mmhLocation, mmhLocation + ".backup");
                 }
             }
