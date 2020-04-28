@@ -1,11 +1,9 @@
-using BepInEx;
+﻿using BepInEx;
 using Mono.Cecil;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using static LighterPatcher.Helpers;
 
 namespace LighterPatcher
 {
@@ -18,7 +16,7 @@ namespace LighterPatcher
         private static List<string> neededTypes;
         private static string mmhLocation;
         private static long hash;
-        private static BepInEx.Logging.ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("LighterPatcher");
+        internal static BepInEx.Logging.ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("LighterPatcher");
 
         public static void Initialize()
         {
@@ -34,7 +32,6 @@ namespace LighterPatcher
             int modsWithRefs = 0;
             foreach (var pluginDll in Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories))
             {
-                Logger.LogDebug($"Checking {pluginDll}.");
                 try
                 {
                     using (var ass = AssemblyDefinition.ReadAssembly(pluginDll))
@@ -81,7 +78,7 @@ namespace LighterPatcher
 
             if (oldHash == hash.ToString())
             {
-                Logger.LogInfo($"LighterhHook has already run for these mods. Using that old file again.");
+                Logger.LogMessage($"LighterhHook has already run for these mods. Using that old file again.");
                 mmhLocation = null;
             }
             else
@@ -111,7 +108,7 @@ namespace LighterPatcher
 
             using (AssemblyDefinition mmHook = AssemblyDefinition.ReadAssembly(mmhLocation + ".backup"))
             {
-                Logger.LogInfo("Stripping types. This may take a while.");
+                Logger.LogDebug("Stripping types.");
                 var mTypes = mmHook.MainModule.Types;
                 List<TypeDefinition> types = mTypes.ToList();
                 types = types.OrderBy(x => x.FullName).ToList();
@@ -138,7 +135,13 @@ namespace LighterPatcher
 
                 if (neededTypes.Count > 0)
                 {
-                    Logger.LogError("Couldn't find all needed types!");
+                    Logger.LogFatal("Couldn't find all needed types!");
+                    Logger.LogMessage("Please report this! As a workaround, consider removing LighterPatcher!");
+                    Logger.LogMessage("Using old backup mmHook");
+                    File.Move(mmhLocation + ".backup", mmhLocation);
+                    mmhLocation += ".failed";
+                    File.Delete(mmhLocation);
+                    Logger.LogInfo($"Writing failed build to {mmhLocation}");
                 }
 
                 MarkAssembly(mmHook, hash);
