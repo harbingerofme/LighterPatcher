@@ -1,6 +1,7 @@
-﻿using Mono.Cecil.Cil;
+﻿using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Mono.Collections.Generic;
 using System.Collections.Generic;
-
 
 namespace LighterPatcher
 {
@@ -15,39 +16,53 @@ namespace LighterPatcher
                 return;
             var operand = instruction.Operand.ToString();
 
-            string CompleteClass;
-
             var i = operand.IndexOf("On.");
             if (i != -1)
             {
-                GetTypesFromIndex(ref typeList);
+                var j = operand.IndexOf("::");
+                string completeClass = operand.Substring(i, j - i);
+                LightestPatcher.Logger.LogDebug($"Call On: {completeClass}");
+                ResolvePotentiallyNestedType(completeClass, ref typeList);
+
             }
 
             i = operand.IndexOf("IL.");
             if(i != -1)
             {
-                GetTypesFromIndex(ref typeList);
-            }
-
-            void GetTypesFromIndex(ref List<string> types)
-            {
-
                 var j = operand.IndexOf("::");
-                CompleteClass = operand.Substring(i, j - i);
-                var classes = CompleteClass.Split('/');
-                var requiredOn = classes[0].Replace("IL.", "On.");
-                var requiredIL = classes[0].Replace( "On.", "IL.");
-                types.UAdd(requiredOn);
-                types.UAdd(requiredIL);
-                for (int x = 1; x < classes.Length; x++)
-                {
-                    requiredOn += "/" + classes[x];
-                    requiredIL += "/" + classes[x];
-                    types.UAdd(requiredOn);
-                    types.UAdd(requiredIL);
-                }
-                return;
+                string completeClass = operand.Substring(i, j - i);
+                LightestPatcher.Logger.LogDebug($"Call IL: {completeClass}");
+                ResolvePotentiallyNestedType(completeClass, ref typeList);
             }
+        }
+
+        public static void GetNeededType(this Collection<ParameterDefinition> parameterDefinitions, ref List<string> typeList)
+        {
+            if (parameterDefinitions.Count != 0 && parameterDefinitions[0].ParameterType.FullName.StartsWith("On."))
+            {
+                string s = parameterDefinitions[0].ParameterType.FullName;
+                s = s.Substring(0, s.IndexOf('/'));
+                LightestPatcher.Logger.LogDebug($"Parameter: {s}");
+                ResolvePotentiallyNestedType(s, ref typeList);
+            }
+        }
+
+
+        public static void ResolvePotentiallyNestedType(string typeName, ref List<string> typeList)
+        {
+            var classes = typeName.Split('/');
+            var requiredOn = classes[0].Replace("IL.", "On.");
+            var requiredIL = classes[0].Replace("On.", "IL.");
+            typeList.UAdd(requiredOn);
+            typeList.UAdd(requiredIL);
+            for (int x = 1; x < classes.Length; x++)
+            {
+                requiredOn += "/" + classes[x];
+                requiredIL += "/" + classes[x];
+                typeList.UAdd(requiredOn);
+                typeList.UAdd(requiredIL);
+            }
+            return;
         }
 
         /// <summary>
