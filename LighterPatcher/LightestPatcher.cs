@@ -94,7 +94,7 @@ namespace LighterPatcher
             return new string[0];
         }
 
-        //Since BepInEx doesn't return plugins to us, this method is offiically pointless.
+        //Since BepInEx doesn't return plugins to us, this method is officially pointless.
         public static void Patch(AssemblyDefinition assemblyDefinition)
         {
             Logger.LogError($"How did you even end up here? Here's the definition: {assemblyDefinition.FullName}");
@@ -109,25 +109,33 @@ namespace LighterPatcher
             using (AssemblyDefinition mmHook = AssemblyDefinition.ReadAssembly(mmhLocation + ".backup"))
             {
                 Logger.LogDebug("Stripping types.");
+
+                Func<TypeDefinition, string> FullNameSelector = new Func<TypeDefinition, string>(td => td.FullName);
                 var mTypes = mmHook.MainModule.Types;
                 List<TypeDefinition> types = mTypes.ToList();
-                types = types.OrderBy(x => x.FullName).ToList();
+                types = types.OrderBy(FullNameSelector).ToList();
 
                 int index = 0; TypeDefinition currentType;
                 while(neededTypes.Count > 0 && index < types.Count)
                 {
                     currentType = types[index];
-                    if (currentType.HasNestedTypes)//expand nested types.
-                        types.InsertRange(index+1, currentType.NestedTypes.ToList().OrderBy(x => x.FullName));
 
+
+                        
                     if (currentType.FullName != neededTypes[0])
                     {
                         types.RemoveAt(index);
-                        mTypes.Remove(currentType);
+                        if (currentType.IsNested && currentType.BaseType.Name != nameof(MulticastDelegate))
+                            currentType.DeclaringType.NestedTypes.Remove(currentType);
+                        else
+                            mTypes.Remove(currentType);
                         continue;
                     }
                     else
                     {
+                        if (currentType.HasNestedTypes)//expand nested types.
+                            types.InsertRange(index + 1, currentType.NestedTypes.ToList().OrderBy(FullNameSelector));
+
                         index++;
                         neededTypes.RemoveAt(0);
                     }
@@ -138,7 +146,7 @@ namespace LighterPatcher
                     Logger.LogFatal("Couldn't find all needed types!");
                     Logger.LogMessage("Please report this! As a workaround, consider removing LighterPatcher!");
                     Logger.LogMessage("Using old backup mmHook");
-                    File.Move(mmhLocation + ".backup", mmhLocation);
+                    File.Copy(mmhLocation + ".backup", mmhLocation);
                     mmhLocation += ".failed";
                     File.Delete(mmhLocation);
                     Logger.LogInfo($"Writing failed build to {mmhLocation}");
