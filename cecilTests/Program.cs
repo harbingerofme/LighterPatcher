@@ -15,12 +15,28 @@ namespace cecilTests
             for (int index = 0; index < types.Count; index++)
             {
                 var currentType = types[index];
-                Console.WriteLine($"{currentType.FullName} : HasNested:{currentType.HasNestedTypes} ");
-                if (currentType.HasNestedTypes)//expand nested types.
+                if (currentType.HasNestedTypes)
                 {
                     types.InsertRange(index + 1, currentType.NestedTypes.ToList().OrderBy(x => x.FullName));
                 }
+                var methods = currentType.Methods;
+                for(int methodIndex = 0; methodIndex < methods.Count; methodIndex++)
+                {
+                    var currentMethod = methods[methodIndex];
+                    Console.WriteLine(currentMethod.Name);
+                    foreach(var pd in currentMethod.Parameters)
+                    {
+                        Console.WriteLine($"\t{pd.Index}:{pd.ParameterType.FullName}");
+                    }
+                }
             }
+        }
+
+        public int NonStaticAdd(long a, int c)
+        {
+            a = Math.Max(a, int.MaxValue);
+            long result = a + c;
+            return (int)Math.Max(result, int.MaxValue);
         }
     }
 }
