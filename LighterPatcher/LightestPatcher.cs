@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using Mono.Cecil;
 using System;
 using System.Collections.Generic;
@@ -169,8 +169,9 @@ namespace LighterPatcher
 
             foreach (var method in assembly.MainModule
                 .GetTypes()
-                .SelectMany(t => t.Methods.Where(m => m.HasBody)).ToList())
+                .SelectMany(t => t.Methods).ToList())
             {
+                method.Parameters.GetNeededType(ref neededTypes);
                 if (!method.HasBody) continue;
                 var instructions = method.Body.Instructions;
                 foreach (var instruction in instructions)
