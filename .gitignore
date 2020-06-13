@@ -351,6 +351,7 @@ MigrationBackup/
 # Libs
 libs/*.dll
 libs/*.xml
+LighterPatcher/libs/*.dll
 
 # Thunderstore Stuff
 Thunderstore/*

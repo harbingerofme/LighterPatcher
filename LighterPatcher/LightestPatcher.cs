@@ -120,6 +120,11 @@ namespace LighterPatcher
                 {
                     currentType = types[index];
 
+                    if(!(currentType.FullName.StartsWith("On") || currentType.FullName.StartsWith("IL")))
+                    {
+                        Logger.LogDebug("Skip trimming '" + currentType.FullName + "' as it's not a Vanilla type");
+                        index++;
+                    }
 
                         
                     if (currentType.FullName != neededTypes[0])
