@@ -24,6 +24,8 @@ The process to do so is as follows:
 
 # Changelog:
 
+* 1.0.3
+    * Skip trimming types that are not part of the `On` and `IL` namespace, as we have not done any scanning for dependencies on such types. Additionally, such types may be used as markers by other modifications. Like [BepInEx.MonoMod.HookGenPatcher](https://github.com/harbingerofme/Bepinex.Monomod.HookGenPatcher).
 * 1.0.2
     * Fix case where patcher would remove types needed by parameters of uncalled methods.
     * Failing to succesfully build will no longer leave the enviroment in an unstable state.
