@@ -20,19 +20,25 @@ namespace LighterPatcher
             if (i != -1)
             {
                 var j = operand.IndexOf("::");
-                string completeClass = operand.Substring(i, j - i);
-                LightestPatcher.Logger.LogDebug($"Call On: {completeClass}");
-                ResolvePotentiallyNestedType(completeClass, ref typeList);
-
+                if (j > i)
+                {
+                    string completeClass = operand.Substring(i, j - i);
+                    LightestPatcher.Logger.LogDebug($"Call On: {completeClass}");
+                    ResolvePotentiallyNestedType(completeClass, ref typeList);
+                    return;
+                }
             }
 
             i = operand.IndexOf("IL.");
             if(i != -1)
             {
                 var j = operand.IndexOf("::");
-                string completeClass = operand.Substring(i, j - i);
-                LightestPatcher.Logger.LogDebug($"Call IL: {completeClass}");
-                ResolvePotentiallyNestedType(completeClass, ref typeList);
+                if (j > i)
+                {
+                    string completeClass = operand.Substring(i, j - i);
+                    LightestPatcher.Logger.LogDebug($"Call IL: {completeClass}");
+                    ResolvePotentiallyNestedType(completeClass, ref typeList);
+                }
             }
         }
 
