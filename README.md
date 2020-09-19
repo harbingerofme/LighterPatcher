@@ -19,11 +19,13 @@ The process to do so is as follows:
 2. Back up the original `MMHOOK_Assembly-CSharp.dll` to `MMHOOK_Assembly-CSharp.dll.backup`.
 3. Sort all types needed, and all types present. 
 4. Do a mergeSort-esque iteration over both lists and remove types in the 'original' list that not present in the 'needed' list.
-    * Exapnd all nested types while doing so.
+    * Expand all nested types while doing so.
 5. Write the stripped MMHOOK.
 
 # Changelog:
 
+* 1.0.4
+    * Fix case where patcher would fail on certain well-formed instructions.
 * 1.0.3
     * Skip trimming types that are not part of the `On` and `IL` namespace, as we have not done any scanning for dependencies on such types. Additionally, such types may be used as markers by other modifications. Like [BepInEx.MonoMod.HookGenPatcher](https://github.com/harbingerofme/Bepinex.Monomod.HookGenPatcher).
 * 1.0.2

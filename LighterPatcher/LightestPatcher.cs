@@ -1,5 +1,7 @@
 ﻿using BepInEx;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Mono.Collections.Generic;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -187,15 +189,64 @@ namespace LighterPatcher
                 .GetTypes()
                 .SelectMany(t => t.Methods).ToList())
             {
-                method.Parameters.GetNeededType(ref neededTypes);
+                GetNeededType(method.Parameters);
                 if (!method.HasBody) continue;
                 var instructions = method.Body.Instructions;
                 foreach (var instruction in instructions)
                 {
                     if (instruction.Operand == null) continue;
-                    instruction.GetNeededTypes(ref neededTypes);
+                    if (instruction.OpCode != OpCodes.Call || instruction.OpCode != OpCodes.Callvirt)
+                        return;
+
+                    GetNeededTypes(instruction, "On.");
+                    GetNeededTypes(instruction, "IL.");
                 }
             }
+
+            void GetNeededTypes(Instruction instruction, string nameSpace)
+            {
+                var operand = instruction.Operand.ToString();
+                var i = operand.IndexOf(nameSpace);
+                if (i != -1)
+                {
+                    var j = operand.IndexOf("::");
+                    if (j > i)
+                    {
+                        string completeClass = operand.Substring(i, j - i);
+                        Logger.LogDebug($"{instruction.OpCode.Name} {nameSpace}: {completeClass}");
+                        ResolvePotentiallyNestedType(completeClass);
+                        return;
+                    }
+                }
+            }
+        }
+
+        public static void GetNeededType(Collection<ParameterDefinition> parameterDefinitions)
+        {
+            if (parameterDefinitions.Count != 0 && parameterDefinitions[0].ParameterType.FullName.StartsWith("On."))
+            {
+                string s = parameterDefinitions[0].ParameterType.FullName;
+                s = s.Substring(0, s.IndexOf('/'));
+                Logger.LogDebug($"Parameter: {s}");
+                ResolvePotentiallyNestedType(s);
+            }
+        }
+
+        private static void ResolvePotentiallyNestedType(string typeName)
+        {
+            var classes = typeName.Split('/');
+            var requiredOn = classes[0].Replace("IL.", "On.");
+            var requiredIL = classes[0].Replace("On.", "IL.");
+            neededTypes.UAdd(requiredOn);
+            neededTypes.UAdd(requiredIL);
+            for (int x = 1; x < classes.Length; x++)
+            {
+                requiredOn += "/" + classes[x];
+                requiredIL += "/" + classes[x];
+                neededTypes.UAdd(requiredOn);
+                neededTypes.UAdd(requiredIL);
+            }
+            return;
         }
 
         private static void MarkAssembly(AssemblyDefinition assembly, long hash)
