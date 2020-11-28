@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Collections.Generic;
@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace LighterPatcher
 {
@@ -118,6 +119,9 @@ namespace LighterPatcher
                 types = types.OrderBy(FullNameSelector).ToList();
 
                 int index = 0; TypeDefinition currentType;
+
+                var debugTypes = neededTypes.ToArray();
+
                 while (neededTypes.Count > 0 && index < types.Count)
                 {
                     currentType = types[index];
@@ -157,10 +161,22 @@ namespace LighterPatcher
                     mmhLocation += ".failed";
                     File.Delete(mmhLocation);
                     Logger.LogInfo($"Writing failed build to {mmhLocation}");
+                    string tracefile = Path.Combine(Path.GetDirectoryName(mmhLocation), "LighterPatcherTrace.txt");
+                    StringBuilder trace = new StringBuilder();
+                    trace.AppendLine("Couldn't find all needed types!");
+                    trace.AppendLine($"(First) missing type: {neededTypes[0]}");
+                    trace.AppendLine("All needed types:");
+                    trace.Append('\t');
+                    trace.Append(string.Join("\n\t", debugTypes));
+                    Logger.LogInfo($"Writing a trace to {tracefile}");
+                    File.Delete(tracefile);
+                    File.WriteAllText(tracefile, trace.ToString());
+                    trace = null;
                 }
 
                 MarkAssembly(mmHook, hash);
                 mmHook.Write(mmhLocation);
+                debugTypes = null;
             }
         }
 
