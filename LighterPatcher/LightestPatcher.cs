@@ -62,14 +62,14 @@ namespace LighterPatcher
             if (mmhLocation == null)
             {
                 Logger.LogMessage("No MMHOOK found. I can't make lighter what's already 0.");
-                return new string[0];
+                return Array.Empty<string>();
             }
 
             if (modsWithRefs == 0)
             {
                 Logger.LogMessage("No plugins to patch MMHook for.");
                 mmhLocation = null;
-                return new string[0];
+                return Array.Empty<string>();
             }
 
 
@@ -93,7 +93,7 @@ namespace LighterPatcher
                 }
             }
 
-            return new string[0];
+            return Array.Empty<string>();
         }
 
         //Since BepInEx doesn't return plugins to us, this method is officially pointless.
@@ -118,17 +118,17 @@ namespace LighterPatcher
                 types = types.OrderBy(FullNameSelector).ToList();
 
                 int index = 0; TypeDefinition currentType;
-                while(neededTypes.Count > 0 && index < types.Count)
+                while (neededTypes.Count > 0 && index < types.Count)
                 {
                     currentType = types[index];
 
-                    if(!(currentType.FullName.StartsWith("On") || currentType.FullName.StartsWith("IL")))
+                    if (!(currentType.FullName.StartsWith("On") || currentType.FullName.StartsWith("IL")))
                     {
                         Logger.LogDebug("Skip trimming '" + currentType.FullName + "' as it's not a Vanilla type");
                         index++;
                     }
 
-                        
+
                     if (currentType.FullName != neededTypes[0])
                     {
                         types.RemoveAt(index);
@@ -195,8 +195,8 @@ namespace LighterPatcher
                 foreach (var instruction in instructions)
                 {
                     if (instruction.Operand == null) continue;
-                    if (instruction.OpCode != OpCodes.Call || instruction.OpCode != OpCodes.Callvirt)
-                        return;
+                    if (instruction.OpCode != OpCodes.Call && instruction.OpCode != OpCodes.Callvirt)
+                        continue;
 
                     GetNeededTypes(instruction, "On.");
                     GetNeededTypes(instruction, "IL.");

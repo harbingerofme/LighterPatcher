@@ -23,8 +23,9 @@ The process to do so is as follows:
 5. Write the stripped MMHOOK.
 
 # Changelog:
-
-* 1.0.4
+* 1.0.5
+    * Fix an issue where if a method didn't have it's first instructions as call(virt)s, it would be skipped. Thanks `Windows10CE`.
+* 1.0.4 
     * Fix case where patcher would fail on certain well-formed instructions.
 * 1.0.3
     * Skip trimming types that are not part of the `On` and `IL` namespace, as we have not done any scanning for dependencies on such types. Additionally, such types may be used as markers by other modifications. Like [BepInEx.MonoMod.HookGenPatcher](https://github.com/harbingerofme/Bepinex.Monomod.HookGenPatcher).
