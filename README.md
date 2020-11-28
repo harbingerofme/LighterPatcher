@@ -25,6 +25,8 @@ The process to do so is as follows:
 # Changelog:
 * 1.0.5
     * Fix an issue where if a method didn't have it's first instructions as call(virt)s, it would be skipped. Thanks `Windows10CE`.
+    * 1.0.5.1 Added better trace messages.
+    * 1.0.5.1 Fixed needing types not available in the `IL` namespace.
 * 1.0.4 
     * Fix case where patcher would fail on certain well-formed instructions.
 * 1.0.3
