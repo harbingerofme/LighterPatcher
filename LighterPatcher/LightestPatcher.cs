@@ -1,4 +1,4 @@
-using BepInEx;
+﻿using BepInEx;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Collections.Generic;
@@ -255,11 +255,16 @@ namespace LighterPatcher
             var requiredIL = classes[0].Replace("On.", "IL.");
             neededTypes.UAdd(requiredOn);
             neededTypes.UAdd(requiredIL);
+
             for (int x = 1; x < classes.Length; x++)
             {
                 requiredOn += "/" + classes[x];
                 requiredIL += "/" + classes[x];
                 neededTypes.UAdd(requiredOn);
+                if (classes[x].StartsWith("orig_") || classes[x].StartsWith("hook_"))
+                {
+                    continue;
+                }
                 neededTypes.UAdd(requiredIL);
             }
             return;
