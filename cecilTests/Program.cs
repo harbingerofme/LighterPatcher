@@ -1,7 +1,6 @@
 ﻿using Mono.Cecil;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 
 namespace cecilTests
@@ -20,11 +19,11 @@ namespace cecilTests
                     types.InsertRange(index + 1, currentType.NestedTypes.ToList().OrderBy(x => x.FullName));
                 }
                 var methods = currentType.Methods;
-                for(int methodIndex = 0; methodIndex < methods.Count; methodIndex++)
+                for (int methodIndex = 0; methodIndex < methods.Count; methodIndex++)
                 {
                     var currentMethod = methods[methodIndex];
                     Console.WriteLine(currentMethod.Name);
-                    foreach(var pd in currentMethod.Parameters)
+                    foreach (var pd in currentMethod.Parameters)
                     {
                         Console.WriteLine($"\t{pd.Index}:{pd.ParameterType.FullName}");
                     }

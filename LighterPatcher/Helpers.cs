@@ -1,11 +1,8 @@
-﻿using Mono.Cecil;
-using Mono.Cecil.Cil;
-using Mono.Collections.Generic;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace LighterPatcher
 {
-    static class Helpers 
+    static class Helpers
     {
         /// <summary>
         ///  Adds an element only if it's not already present in the list.
@@ -25,7 +22,7 @@ namespace LighterPatcher
         public static long MakeContentHashCode<T>(this ICollection<T> list)
         {
             long output = 0;
-            foreach(var entry in list)
+            foreach (var entry in list)
             {
                 output += entry.GetHashCode();
             }
