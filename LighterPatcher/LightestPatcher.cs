@@ -6,7 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Reflection;
+using TypeAttributes = Mono.Cecil.TypeAttributes;
 
 namespace LighterPatcher
 {
@@ -21,9 +24,39 @@ namespace LighterPatcher
         private static long hash;
         internal static BepInEx.Logging.ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("LighterPatcher");
 
+        private static List<string> PluginPaths;
+
         public static void Initialize()
         {
             neededTypes = new List<string>();
+            PluginPaths = new List<string>
+            {
+                Paths.PluginPath
+            };
+            if (BepInEx.Preloader.Patching.AssemblyPatcher.PatcherPlugins.Any((x) =>
+            {
+                return x.TypeName == "BepInEx.MultiFolderLoader.MultiFolderLoader";
+            }))
+            {
+               Logger.LogMessage("BepInEx is running MultiFolderLoader");
+               GetPluginListsFromMultiFolder();
+            }
+           
+        }
+
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void GetPluginListsFromMultiFolder()
+        {
+            var fieldInfo = typeof(BepInEx.MultiFolderLoader.ModManager).GetField("Mods", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            List<BepInEx.MultiFolderLoader.Mod> mods = (List<BepInEx.MultiFolderLoader.Mod>) fieldInfo.GetValue(null);
+            foreach(BepInEx.MultiFolderLoader.Mod mod in mods)
+            {
+                if(mod.PluginsPath != null)
+                {
+                    PluginPaths.Add(mod.PluginsPath);
+                }
+            }
         }
 
         public static IEnumerable<string> TargetDLLs => TellBepinAbsolutelyNothingBecauseThePluginsFolderIsntManaged();
@@ -33,31 +66,34 @@ namespace LighterPatcher
             Logger.LogInfo($"Collecting information for new MMHook");
             string oldHash = null;
             int modsWithRefs = 0;
-            foreach (var pluginDll in Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories))
+            foreach (string path in PluginPaths)
             {
-                try
+                foreach (var pluginDll in Directory.GetFiles(path, "*.dll", SearchOption.AllDirectories))
                 {
-                    using (var ass = AssemblyDefinition.ReadAssembly(pluginDll))
+                    try
                     {
-                        if (ass.Name.Name == "MMHOOK_Assembly-CSharp")
+                        using (var ass = AssemblyDefinition.ReadAssembly(pluginDll))
                         {
-                            oldHash = CollectHash(ass);
-
-                            mmhLocation = pluginDll;
-                            continue;
-                        }
-                        foreach (var refer in ass.MainModule.AssemblyReferences)
-                        {
-                            if (refer.Name == "MMHOOK_Assembly-CSharp")
+                            if (ass.Name.Name == "MMHOOK_Assembly-CSharp")
                             {
-                                CollectMethodDefinitions(ass);
-                                modsWithRefs++;
-                                break;
+                                oldHash = CollectHash(ass);
+
+                                mmhLocation = pluginDll;
+                                continue;
+                            }
+                            foreach (var refer in ass.MainModule.AssemblyReferences)
+                            {
+                                if (refer.Name == "MMHOOK_Assembly-CSharp")
+                                {
+                                    CollectMethodDefinitions(ass);
+                                    modsWithRefs++;
+                                    break;
+                                }
                             }
                         }
                     }
+                    catch (Exception e) { Logger.LogError($"Error on: {pluginDll}"); Logger.LogError(e); }
                 }
-                catch (Exception e) { Logger.LogError($"Error on: {pluginDll}"); Logger.LogError(e); }
             }
 
             if (mmhLocation == null)
